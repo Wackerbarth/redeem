@@ -12,3 +12,6 @@ class Characteristics():
   replicape_key = None
   replicape_path = None
   replicape_revision = None
+
+
+from .transition.devices import set_up_the_printer_devices

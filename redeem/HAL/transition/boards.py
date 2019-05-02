@@ -5,6 +5,7 @@ import glob
 import logging
 import struct
 
+
 def identify_boards(self):
   """ Read the name and revision of each cape on the BeagleBone """
   paths = glob.glob("/sys/bus/i2c/devices/[1-2]-005[4-7]/*/nvmem")
@@ -19,12 +20,20 @@ def identify_boards(self):
           self.replicape_revision = data[38:42]
           self.replicape_data = data
           self.replicape_path = path
+          logging.info("Found Replicape rev. {}".format(self.replicape_revision))
         elif name[:13] == b"BB-BONE-REACH":
           self.reach_revision = data[38:42]
           self.reach_data = data
           self.reach_path = path
+          logging.info("Found Reach rev. " + self.printer.characteristics.reach_revision)
     except IOError as e:
       pass
+    # Proceed as if the board was present
+    # There were some B3A boards that were distributed without being pre-programmed
+    # TODO -- Is there any reason to keep this hack?
+  if self.replicape_revision == None:
+    logging.warning("Oh no! No Replicape present!")
+    self.replicape_revision = "0B3A"
 
 
 def aquire_printer_identifier(self):

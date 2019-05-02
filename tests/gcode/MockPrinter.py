@@ -39,11 +39,12 @@ sys.modules['redeem.IOManager'] = mock.Mock()
 sys.modules['redeem.IOManager'].IOManager = mock.MagicMock()
 
 from redeem.HAL import Characteristics
+from redeem.PathPlanner import PathPlanner
 from redeem.EndStop import EndStop
 from redeem.Extruder import Heater
 from redeem.Gcode import Gcode
 from redeem.Path import Path
-from redeem.Redeem import Redeem, PathPlanner
+from redeem.Redeem import Redeem
 
 
 class MockedCharacteristics(Characteristics):
