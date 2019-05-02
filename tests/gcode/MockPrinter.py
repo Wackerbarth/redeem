@@ -38,21 +38,26 @@ sys.modules['redeem.PWM'] = mock.Mock()
 sys.modules['redeem.IOManager'] = mock.Mock()
 sys.modules['redeem.IOManager'].IOManager = mock.MagicMock()
 
-from redeem.CascadingConfigParser import CascadingConfigParser
 from redeem.EndStop import EndStop
 from redeem.Extruder import Heater
 from redeem.Gcode import Gcode
+from redeem.HAL import Characteristics
 from redeem.Path import Path
-from redeem.Redeem import Redeem, PathPlanner
-"""
-Override CascadingConfigParser methods to set self. variables
-"""
+from redeem.PathPlanner import PathPlanner
+from redeem.Redeem import Redeem
 
 
-class CascadingConfigParserWedge(CascadingConfigParser):
-  def parse_capes(self):
+class MockedCharacteristics(Characteristics):
+  """
+  Override Characteristics methods to set self. variables
+  """
+
+  def identify_boards(self):
     self.replicape_revision = "0B3A"    # Fake. No hardware involved in these tests (Redundant?)
     self.reach_revision = "00A0"    # Fake. No hardware involved in these tests (Redundant?)
+
+  def aquire_printer_identifier(self):
+    self.replicape_key = "TESTING_DUMMY_KEY"
 
 
 class MockPrinter(unittest.TestCase):
@@ -115,7 +120,7 @@ version = 1
 
   @classmethod
   @mock.patch.object(PathPlanner, "_init_path_planner")
-  @mock.patch("redeem.Redeem.CascadingConfigParser", new=CascadingConfigParserWedge)
+  @mock.patch("redeem.Redeem.Characteristics", new=MockedCharacteristics)
   def setUpClass(cls, mock_init_path_planner):
     """
     Allow Extruder or HBP instantiation without crashing 'cause not BBB/Replicape
@@ -141,7 +146,6 @@ version = 1
 
     cls.R = Redeem(config_location=cls.temporary_config_directory)
     cls.printer = cls.R.printer
-    cls.printer.config.replicape_key = "TESTING_DUMMY_KEY"
 
     cls.setUpPatch()
 

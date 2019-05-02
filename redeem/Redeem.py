@@ -51,6 +51,7 @@ from .Fan import Fan
 from .FilamentSensor import *
 from .Gcode import Gcode
 from .GCodeProcessor import GCodeProcessor
+from .HAL import Characteristics
 from .IOManager import IOManager
 from .Key_pin import Key_pin, Key_pin_listener
 from .Mosfet import Mosfet
@@ -112,6 +113,9 @@ class Redeem:
       os.mknod(local_path)
       os.chmod(local_path, 0o666)
 
+    # Provide storage for hardware characteristics
+    printer.characteristics = Characteristics()
+
     # Parse the config files.
     printer.config = CascadingConfigParser([
         os.path.join(config_location, 'default.cfg'),
@@ -142,25 +146,22 @@ class Redeem:
       logging.info("-- Logfile configured --")
 
     # Find out which capes are connected
-    self.printer.config.parse_capes()
-    self.revision = self.printer.config.replicape_revision
-    if self.revision:
-      logging.info("Found Replicape rev. {}".format(self.revision))
-    else:
-      logging.warning("Oh no! No Replicape present!")
-      self.revision = "0B3A"
+    printer.characteristics.identify_boards()
+    printer.characteristics.aquire_printer_identifier()
+
+    _revision = self.printer.characteristics.replicape_revision
     # We set it to 5 axis by default
     Printer.NUM_AXES = 5
-    if self.printer.config.reach_revision:
-      logging.info("Found Reach rev. " + self.printer.config.reach_revision)
-    if self.printer.config.reach_revision == "00A0":
+    if self.printer.characteristics.reach_revision:
+      logging.info("Found Reach rev. " + self.printer.characteristics.reach_revision)
+    if self.printer.characteristics.reach_revision == "00A0":
       Printer.NUM_AXES = 8
-    elif self.printer.config.reach_revision == "00B0":
+    elif self.printer.characteristics.reach_revision == "00B0":
       Printer.NUM_AXES = 7
 
-    if self.revision in ["00A4", "0A4A", "00A3"]:
+    if _revision in ["00A4", "0A4A", "00A3"]:
       PWM.set_frequency(100)
-    elif self.revision in ["00B1", "00B2", "00B3", "0B3A"]:
+    elif _revision in ["00B1", "00B2", "00B3", "0B3A"]:
       PWM.set_frequency(1000)
 
     # Init the Watchdog timer
@@ -197,42 +198,42 @@ class Redeem:
 
     # Init the 5 Stepper motors (step, dir, fault, DAC channel, name)
     Stepper.printer = printer
-    if self.revision == "00A3":
+    if _revision == "00A3":
       printer.steppers["X"] = Stepper_00A3("GPIO0_27", "GPIO1_29", "GPIO2_4", 0, "X")
       printer.steppers["Y"] = Stepper_00A3("GPIO1_12", "GPIO0_22", "GPIO2_5", 1, "Y")
       printer.steppers["Z"] = Stepper_00A3("GPIO0_23", "GPIO0_26", "GPIO0_15", 2, "Z")
       printer.steppers["E"] = Stepper_00A3("GPIO1_28", "GPIO1_15", "GPIO2_1", 3, "E")
       printer.steppers["H"] = Stepper_00A3("GPIO1_13", "GPIO1_14", "GPIO2_3", 4, "H")
-    elif self.revision == "00B1":
+    elif _revision == "00B1":
       printer.steppers["X"] = Stepper_00B1("GPIO0_27", "GPIO1_29", "GPIO2_4", 11, 0, "X")
       printer.steppers["Y"] = Stepper_00B1("GPIO1_12", "GPIO0_22", "GPIO2_5", 12, 1, "Y")
       printer.steppers["Z"] = Stepper_00B1("GPIO0_23", "GPIO0_26", "GPIO0_15", 13, 2, "Z")
       printer.steppers["E"] = Stepper_00B1("GPIO1_28", "GPIO1_15", "GPIO2_1", 14, 3, "E")
       printer.steppers["H"] = Stepper_00B1("GPIO1_13", "GPIO1_14", "GPIO2_3", 15, 4, "H")
-    elif self.revision == "00B2":
+    elif _revision == "00B2":
       printer.steppers["X"] = Stepper_00B2("GPIO0_27", "GPIO1_29", "GPIO2_4", 11, 0, "X")
       printer.steppers["Y"] = Stepper_00B2("GPIO1_12", "GPIO0_22", "GPIO2_5", 12, 1, "Y")
       printer.steppers["Z"] = Stepper_00B2("GPIO0_23", "GPIO0_26", "GPIO0_15", 13, 2, "Z")
       printer.steppers["E"] = Stepper_00B2("GPIO1_28", "GPIO1_15", "GPIO2_1", 14, 3, "E")
       printer.steppers["H"] = Stepper_00B2("GPIO1_13", "GPIO1_14", "GPIO2_3", 15, 4, "H")
-    elif self.revision in ["00B3", "0B3A"]:
+    elif _revision in ["00B3", "0B3A"]:
       printer.steppers["X"] = Stepper_00B3("GPIO0_27", "GPIO1_29", 90, 11, 0, "X")
       printer.steppers["Y"] = Stepper_00B3("GPIO1_12", "GPIO0_22", 91, 12, 1, "Y")
       printer.steppers["Z"] = Stepper_00B3("GPIO0_23", "GPIO0_26", 92, 13, 2, "Z")
       printer.steppers["E"] = Stepper_00B3("GPIO1_28", "GPIO1_15", 93, 14, 3, "E")
       printer.steppers["H"] = Stepper_00B3("GPIO1_13", "GPIO1_14", 94, 15, 4, "H")
-    elif self.revision in ["00A4", "0A4A"]:
+    elif _revision in ["00A4", "0A4A"]:
       printer.steppers["X"] = Stepper_00A4("GPIO0_27", "GPIO1_29", "GPIO2_4", 0, 0, "X")
       printer.steppers["Y"] = Stepper_00A4("GPIO1_12", "GPIO0_22", "GPIO2_5", 1, 1, "Y")
       printer.steppers["Z"] = Stepper_00A4("GPIO0_23", "GPIO0_26", "GPIO0_15", 2, 2, "Z")
       printer.steppers["E"] = Stepper_00A4("GPIO1_28", "GPIO1_15", "GPIO2_1", 3, 3, "E")
       printer.steppers["H"] = Stepper_00A4("GPIO1_13", "GPIO1_14", "GPIO2_3", 4, 4, "H")
     # Init Reach steppers, if present.
-    if printer.config.reach_revision == "00A0":
+    if printer.characteristics.reach_revision == "00A0":
       printer.steppers["A"] = Stepper_reach_00A4("GPIO2_2", "GPIO1_18", "GPIO0_14", 5, 5, "A")
       printer.steppers["B"] = Stepper_reach_00A4("GPIO1_16", "GPIO0_5", "GPIO0_14", 6, 6, "B")
       printer.steppers["C"] = Stepper_reach_00A4("GPIO0_3", "GPIO3_19", "GPIO0_14", 7, 7, "C")
-    elif printer.config.reach_revision == "00B0":
+    elif printer.characteristics.reach_revision == "00B0":
       printer.steppers["A"] = Stepper_reach_00B0("GPIO1_16", "GPIO0_5", "GPIO0_3", 5, 5, "A")
       printer.steppers["B"] = Stepper_reach_00B0("GPIO2_2", "GPIO0_14", "GPIO0_3", 6, 6, "B")
 
@@ -276,7 +277,7 @@ class Redeem:
 
     # Make Mosfets, temperature sensors and extruders
     heaters = ["E", "H", "HBP"]
-    if self.printer.config.reach_revision:
+    if self.printer.characteristics.reach_revision:
       heaters.extend(["A", "B", "C"])
     for e in heaters:
       # Mosfets
@@ -317,20 +318,20 @@ class Redeem:
 
     # Init the three fans. Argument is PWM channel number
     self.printer.fans = []
-    if self.revision == "00A3":
+    if _revision == "00A3":
       self.printer.fans.append(Fan(0))
       self.printer.fans.append(Fan(1))
       self.printer.fans.append(Fan(2))
-    elif self.revision == "0A4A":
+    elif _revision == "0A4A":
       self.printer.fans.append(Fan(8))
       self.printer.fans.append(Fan(9))
       self.printer.fans.append(Fan(10))
-    elif self.revision in ["00B1", "00B2", "00B3", "0B3A"]:
+    elif _revision in ["00B1", "00B2", "00B3", "0B3A"]:
       self.printer.fans.append(Fan(7))
       self.printer.fans.append(Fan(8))
       self.printer.fans.append(Fan(9))
       self.printer.fans.append(Fan(10))
-    if printer.config.reach_revision == "00A0":
+    if printer.characteristics.reach_revision == "00A0":
       self.printer.fans.append(Fan(14))
       self.printer.fans.append(Fan(15))
       self.printer.fans.append(Fan(7))
