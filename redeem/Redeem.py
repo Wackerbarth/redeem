@@ -47,9 +47,10 @@ from .Stepper import Stepper
 from .StepperWatchdog import StepperWatchdog
 from .Watchdog import Watchdog
 
+from .configuration import standard_configuration
 # Global vars
 printer = None
-RedeemIsRunning = False
+TheControllerIsRunning = False
 
 # Default logging level is set to debug
 logging.basicConfig(
@@ -58,8 +59,8 @@ logging.basicConfig(
     datefmt='%m-%d %H:%M')
 
 
-class Redeem:
-  def __init__(self, config_location="/etc/redeem"):
+class TopLevelController:
+  def __init__(self, *args, **kargs):
     """
     config_location: provide the location to look for config files.
      - default is installed directory
@@ -94,6 +95,7 @@ class Redeem:
     printer.characteristics = Characteristics()
 
     # Parse the config files.
+    ###### standard_configuration()
     printer.config = CascadingConfigParser([
         os.path.join(config_location, 'default.cfg'),
         os.path.join(config_location, 'printer.cfg'),
@@ -137,8 +139,8 @@ class Redeem:
 
   def start(self):
     """ Start the processes """
-    global RedeemIsRunning
-    RedeemIsRunning = True
+    global TheControllerIsRunning
+    TheControllerIsRunning = True
     # Start the two processes
     p0 = Thread(target=self.loop, args=(self.printer.commands, "buffered"), name="p0")
     p1 = Thread(target=self.loop, args=(self.printer.unbuffered_commands, "unbuffered"), name="p1")
@@ -162,7 +164,7 @@ class Redeem:
   def loop(self, the_queue, name):
     """ When a new gcode comes in, execute it """
     try:
-      while RedeemIsRunning:
+      while TheControllerIsRunning:
         try:
           gcode = the_queue.get(block=True, timeout=1)
         except EmptyQueueException:
@@ -176,10 +178,10 @@ class Redeem:
       logging.exception("Exception in {} loop: ".format(name))
 
   def exit(self):
-    global RedeemIsRunning
-    if not RedeemIsRunning:
+    global TheControllerIsRunning
+    if not TheControllerIsRunning:
       return
-    RedeemIsRunning = False
+    TheControllerIsRunning = False
     logging.info("Redeem Shutting Down")
     printer.path_planner.wait_until_done()
     printer.path_planner.force_exit()
@@ -235,13 +237,13 @@ class Redeem:
     self.printer.processor.synchronize(g)
 
 
-def main(config_location="/etc/redeem"):
-  # Create Redeem
-  r = Redeem(config_location)
+def main(*args, **kwargs):
+  # Create Top Level Controller
+  the_controller = TopLevelController(*args, **kwargs)
 
   def signal_handler(signal, frame):
     logging.warning("Received signal: {}, terminating".format(signal))
-    r.exit()
+    the_controller.exit()
 
   def signal_logger(signal, frame):
     logging.warning("Received signal: {}, ignoring".format(signal))
@@ -254,22 +256,22 @@ def main(config_location="/etc/redeem"):
   signal.signal(signal.SIGHUP, signal_logger)
 
   # Launch Redeem
-  r.start()
+  the_controller.start()
 
   logging.info("Startup complete - main thread sleeping")
 
   # Wait for end of process signal
-  global RedeemIsRunning
-  while RedeemIsRunning:
+  global TheControllerIsRunning
+  while TheControllerIsRunning:
     signal.pause()
 
   logging.info("Redeem Terminated")
 
 
-def profile(config_location="/etc/redeem"):
+def profile(*args, **kwargs):
   import yappi
   yappi.start()
-  main(config_location)
+  main(*args, **kwargs)
   yappi.get_func_stats().print_all()
 
 

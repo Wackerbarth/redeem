@@ -44,7 +44,7 @@ from redeem.Gcode import Gcode
 from redeem.HAL import Characteristics
 from redeem.Path import Path
 from redeem.PathPlanner import PathPlanner
-from redeem.Redeem import Redeem
+from redeem.top_level import TopLevelController
 
 
 class MockedCharacteristics(Characteristics):
@@ -63,7 +63,7 @@ class MockedCharacteristics(Characteristics):
 class MockPrinter(unittest.TestCase):
   """
   MockPrinter, in combination with the many sys.module[...] = Mock() statements
-  above, creates a mock Redeem instance. The mock instance has only what is
+  above, creates a mock TopLevelController instance. The mock instance has only what is
   needed for our tests and does not access any BBB hardware IOs.
   """
   """
@@ -115,8 +115,9 @@ version = 1
     tf.write(lines)
     tf.close()
 
-  # even though printer.path_planner is replaced with a mock, it gets initialized prior (when `Redeem` is
-  # instantiated, still need to mock the initialization of the native planner (`_init_path_planner`).
+  # even though printer.path_planner is replaced with a mock, it gets initialized
+  # earlier (when `TopLevelController` is instantiated) Therefore, we still need
+  # to mock the initialization of the native planner (`_init_path_planner`).
 
   @classmethod
   @mock.patch.object(PathPlanner, "_init_path_planner")
@@ -144,7 +145,7 @@ version = 1
     cls.temporary_config_directory = tempfile.mkdtemp()
     cls.setUpConfigFiles(cls.temporary_config_directory)
 
-    cls.R = Redeem(config_location=cls.temporary_config_directory)
+    cls.R = TopLevelController(config_location=cls.temporary_config_directory)
     cls.printer = cls.R.printer
 
     cls.setUpPatch()
