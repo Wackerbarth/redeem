@@ -69,7 +69,7 @@ class GCodeProcessor:
 
   def override_command(self, gcode, gcodeClassInstance):
     """
-    This methods allow a plugin to replace a GCode command
+    This method allows a plugin to replace a GCode command
     with its own provided class.
     """
     self.gcodes[gcode] = gcodeClassInstance
