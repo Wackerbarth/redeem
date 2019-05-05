@@ -20,12 +20,12 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
-
-from Adafruit_GPIO.I2C import Device as I2C
-
-import time
-import subprocess
 import logging
+import os
+import subprocess
+import time
+from Adafruit_GPIO.I2C import Device as I2C
+from pkg_resources import parse_version
 
 
 class PWM(object):
@@ -44,12 +44,12 @@ class PWM(object):
 
   @staticmethod
   def __init_pwm():
-    kernel_version = subprocess.check_output(["uname", "-r"]).strip()
-    [major, minor, rev] = kernel_version.split("-")[0].split(".")
-    if (int(major) == 3 and int(minor) >= 14) or int(major) > 3:
-      PWM.i2c = I2C(0x70, 2)    # Open device
-    else:
+    kernel_version = parse_version(os.uname()[2].split('-')[0])
+    logging.info("kernel version %s", kernel_version)
+    if kernel_version < parse_version('3.14'):
       PWM.i2c = I2C(0x70, 1)    # Open device
+    else:
+      PWM.i2c = I2C(0x70, 2)    # Open device
     PWM.i2c.write8(PWM.PCA9685_MODE1, 0x01)    # Reset
     PWM.i2c._logger.setLevel(logging.WARNING)
 
