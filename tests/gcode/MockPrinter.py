@@ -121,7 +121,7 @@ version = 1
 
   @classmethod
   @mock.patch.object(PathPlanner, "_init_path_planner")
-  @mock.patch("redeem.Redeem.Characteristics", new=MockedCharacteristics)
+  @mock.patch("redeem.top_level.Characteristics", new=MockedCharacteristics)
   def setUpClass(cls, mock_init_path_planner):
     """
     Allow Extruder or HBP instantiation without crashing 'cause not BBB/Replicape
