@@ -125,9 +125,9 @@ class CascadingConfigParser(Parser):
     """ Check the settings currently set against default.cfg """
     default = Parser()
     if PY2:
-      default.readfp(open(os.path.join(self.config_location, "default.cfg")))
+      default.readfp(open(self.config_files[0]))
     else:
-      default.read_file(open(os.path.join(self.config_location, "default.cfg")))
+      default.read_file(open(self.config_files[0]))
     local = Parser()
 
     if PY2:
@@ -153,13 +153,3 @@ class CascadingConfigParser(Parser):
     else:
       logging.warning("{} contains errors.".format(filename))
     return local_ok
-
-
-if __name__ == '__main__':
-  logging.basicConfig(
-      level=logging.DEBUG,
-      format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-      datefmt='%m-%d %H:%M')
-  c = CascadingConfigParser(
-      ["/etc/redeem/default.cfg", "/etc/redeem/printer.cfg", "/etc/redeem/local.cfg"])
-  print(c.get_default_settings())

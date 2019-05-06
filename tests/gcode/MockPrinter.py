@@ -145,7 +145,7 @@ version = 1
     cls.temporary_config_directory = tempfile.mkdtemp()
     cls.setUpConfigFiles(cls.temporary_config_directory)
 
-    cls.R = TopLevelController(config_location=cls.temporary_config_directory)
+    cls.R = TopLevelController(config_dir_path=cls.temporary_config_directory)
     cls.printer = cls.R.printer
 
     cls.setUpPatch()

@@ -47,7 +47,7 @@ from .Stepper import Stepper
 from .StepperWatchdog import StepperWatchdog
 from .Watchdog import Watchdog
 
-from .configuration import standard_configuration
+# TODO -- from .configuration import standard_configuration
 # Global vars
 printer = None
 TheControllerIsRunning = False
@@ -60,9 +60,9 @@ logging.basicConfig(
 
 
 class TopLevelController:
-  def __init__(self, *args, **kargs):
+  def __init__(self, *args, **kwargs):
     """
-    config_location: provide the location to look for config files.
+    config_dir_path: provide the location to look for config files.
      - default is installed directory
      - allows for running in a local directory when debugging
     """
@@ -74,39 +74,51 @@ class TopLevelController:
     Path.printer = printer
     Gcode.printer = printer
 
+    # Provide storage for hardware characteristics
+    _characteristics = Characteristics()
+    printer.characteristics = _characteristics
+
     # Set up and Test the alarm framework
     Alarm.printer = self.printer
     Alarm.executor = AlarmExecutor()
     alarm = Alarm(Alarm.ALARM_TEST, "Alarm framework operational")
 
     # check for config files
-    file_path = os.path.join(config_location, "default.cfg")
-    if not os.path.exists(file_path):
-      logging.error(file_path + " does not exist, this file is required for operation")
+
+    if 'config_dir_path' in kwargs:
+      _characteristics.testing_config_dir_path = kwargs['config_dir_path']
+      _characteristics.system_cf = _characteristics.testing_cf
+      _characteristics.local_cf = _characteristics.testing_cf
+    default_cfg_path = _characteristics.system_cf('default')
+    if not os.path.exists(default_cfg_path):
+      logging.error(default_cfg_path + " does not exist, this file is required for operation")
       sys.exit()    # maybe use something more graceful?
+    configuration_files_list = [default_cfg_path]
 
-    local_path = os.path.join(config_location, "local.cfg")
-    if not os.path.exists(local_path):
-      logging.info(local_path + " does not exist, Creating one")
-      os.mknod(local_path)
-      os.chmod(local_path, 0o666)
+    if '--printer' in kwargs:
+      printer_cfg_path = _characteristics.system_cf(kwargs['--printer'])
+    else:
+      printer_cfg_path = _characteristics.local_cf('printer')
+    if os.path.exists(printer_cfg_path):
+      configuration_files_list.append(printer_cfg_path)
+    else:
+      logging.warning(printer_cfg_path + " does not exist, proceed with caution")
+      printer_cfg_path = None
 
-    # Provide storage for hardware characteristics
-    printer.characteristics = Characteristics()
+    local_cfg_path = _characteristics.local_cf('local')
+    if not os.path.exists(local_cfg_path):
+      logging.info(local_cfg_path + " does not exist, Creating one")
+      os.mknod(local_cfg_path)
+      os.chmod(local_cfg_path, 0o666)
+    configuration_files_list.append(local_cfg_path)
 
     # Parse the config files.
-    ###### standard_configuration()
-    printer.config = CascadingConfigParser([
-        os.path.join(config_location, 'default.cfg'),
-        os.path.join(config_location, 'printer.cfg'),
-        os.path.join(config_location, 'local.cfg')
-    ])
+    printer.config = CascadingConfigParser(configuration_files_list)
 
     # Check the local and printer files
-    printer_path = os.path.join(config_location, "printer.cfg")
-    if os.path.exists(printer_path):
-      printer.config.check(printer_path)
-    printer.config.check(os.path.join(config_location, 'local.cfg'))
+    if not printer_cfg_path is None:
+      printer.config.check(printer_cfg_path)
+    printer.config.check(local_cfg_path)
 
     # Get the revision and loglevel from the Config file
     level = self.printer.config.getint('System', 'loglevel')
@@ -237,7 +249,17 @@ class TopLevelController:
     self.printer.processor.synchronize(g)
 
 
-def main(*args, **kwargs):
+def main():
+  args = []
+  kwargs = {}
+  for a in sys.argv[1:]:
+    print(a)
+    split_a = a.split('=')
+    if len(split_a) > 1:
+      kwargs[split_a[0]] = str.join('=', split_a[1:])
+    else:
+      args.append(a)
+
   # Create Top Level Controller
   the_controller = TopLevelController(*args, **kwargs)
 
@@ -268,15 +290,16 @@ def main(*args, **kwargs):
   logging.info("Redeem Terminated")
 
 
-def profile(*args, **kwargs):
+def profile():
   import yappi
   yappi.start()
-  main(*args, **kwargs)
+  main()
   yappi.get_func_stats().print_all()
 
 
 if __name__ == '__main__':
-  if len(sys.argv) > 1 and sys.argv[1] == "profile":
+  if '--profile' in kwargs:
+    del kwargs[--profile]
     profile()
   else:
     main()
