@@ -1,4 +1,3 @@
-include redeem/firmware/*.p
 include redeem/firmware/*.c
 include redeem/firmware/*.cmd
 include configs/*.cfg
@@ -6,7 +5,5 @@ include data/*.cht
 include redeem/path_planner/*.h
 include redeem/path_planner/numpy.i
 include Makefile
-include debian/*
-include systemd/*.service
 include versioneer.py
 include redeem/_version.py
