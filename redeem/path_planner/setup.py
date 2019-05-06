@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-
-from distutils.core import setup, Extension
-
+import numpy as np
 import os
+import pip
+from distutils.core import setup, Extension
 from distutils.sysconfig import get_config_vars
 
 (opt, ) = get_config_vars('OPT')
