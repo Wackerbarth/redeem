@@ -36,6 +36,7 @@ else:
   import queue
   from queue import Empty as EmptyQueueException
 
+from .configuration import Configuration
 from .Alarm import Alarm, AlarmExecutor
 from .CascadingConfigParser import CascadingConfigParser
 from .Gcode import Gcode
@@ -83,51 +84,18 @@ class TopLevelController:
     Alarm.executor = AlarmExecutor()
     alarm = Alarm(Alarm.ALARM_TEST, "Alarm framework operational")
 
-    # check for config files
-
-    if 'config_dir_path' in kwargs:
-      _characteristics.testing_config_dir_path = kwargs['config_dir_path']
-      _characteristics.system_cf = _characteristics.testing_cf
-      _characteristics.local_cf = _characteristics.testing_cf
-    default_cfg_path = _characteristics.system_cf('default')
-    if not os.path.exists(default_cfg_path):
-      logging.error(default_cfg_path + " does not exist, this file is required for operation")
-      sys.exit()    # maybe use something more graceful?
-    configuration_files_list = [default_cfg_path]
-
-    if '--printer' in kwargs:
-      printer_cfg_path = _characteristics.system_cf(kwargs['--printer'])
-    else:
-      printer_cfg_path = _characteristics.local_cf('printer')
-    if os.path.exists(printer_cfg_path):
-      configuration_files_list.append(printer_cfg_path)
-    else:
-      logging.warning(printer_cfg_path + " does not exist, proceed with caution")
-      printer_cfg_path = None
-
-    local_cfg_path = _characteristics.local_cf('local')
-    if not os.path.exists(local_cfg_path):
-      logging.info(local_cfg_path + " does not exist, Creating one")
-      os.mknod(local_cfg_path)
-      os.chmod(local_cfg_path, 0o666)
-    configuration_files_list.append(local_cfg_path)
-
-    # Parse the config files.
-    printer.config = CascadingConfigParser(configuration_files_list)
-
-    # Check the local and printer files
-    if not printer_cfg_path is None:
-      printer.config.check(printer_cfg_path)
-    printer.config.check(local_cfg_path)
+    # Process the configuration files
+    _parser = Configuration(printer, *args, **kwargs)
+    printer.config = _parser
 
     # Get the revision and loglevel from the Config file
-    level = self.printer.config.getint('System', 'loglevel')
+    level = _parser.getint('System', 'loglevel')
     if level > 0:
       logging.getLogger().setLevel(level)
 
     # Set up additional logging, if present:
-    if self.printer.config.getboolean('System', 'log_to_file'):
-      logfile = self.printer.config.get('System', 'logfile')
+    if _parser.getboolean('System', 'log_to_file'):
+      logfile = _parser.get('System', 'logfile')
       formatter = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
       printer.redeem_logging_handler = logging.handlers.RotatingFileHandler(
           logfile, maxBytes=2 * 1024 * 1024)
