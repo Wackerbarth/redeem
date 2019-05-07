@@ -97,7 +97,6 @@ setup(
       'sh',
       'sympy',
       'testfixtures==6.2.0',
-      'configobj==5.0.6',
       'scipy',
       'pytest==4.0.2',
       'future>=0.16.0',
