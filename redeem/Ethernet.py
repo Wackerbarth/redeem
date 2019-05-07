@@ -53,7 +53,6 @@ class Ethernet:
   def get_message(self):
     """Loop that gets messages and pushes them on the queue"""
     while self.running:
-      #logging.info("Ethernet listening")
       self.s.settimeout(1.0)
       try:
         self.client, self.address = self.s.accept()
@@ -66,37 +65,37 @@ class Ethernet:
         if line is None:
           break
         message = line.strip("\n")
+        # TODO: Also strip out control characters
         if len(message) > 0:
           g = Gcode({"message": message, "prot": "Eth"})
           self.printer.processor.enqueue(g)
 
   def send_message(self, message):
     """Send a message"""
-    #logging.debug("Eth: "+str(message))
     if message[-1] != "\n":
       message += "\n"
     try:
       if self.client:
-        self.client.send(message)
+        self.client.send(message.encode('utf-8'))
     except socket.error as e:
-      logging.error("Ethernet " + e.strerror)
+      logging.error("Ethernet " + e[1])
 
   def read_line(self):
-    """read a line from a socket"""
+    """read a line from the socket"""
     chars = []
     while self.running:
       try:
         char = self.client.recv(1)
+        chars.append(char)
       except socket.error as e:
-        logging.error("Ethernet " + e.strerror)
-        char = ""
-      if char == "":
+        logging.error("Ethernet error: " + e[1])
+        char = None
+      if char is None:
         logging.warning("Ethernet: Connection reset by peer.")
         self.client.close()
         break
-      chars.append(char)
-      if char == "\n":
-        return "".join(chars)
+      if char == b'\n':
+        return ''.join(c.decode('utf-8') for c in chars)
 
   def close(self):
     """Stop receiving messages"""
